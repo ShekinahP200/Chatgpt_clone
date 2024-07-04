@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+
+{% block styles %}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap'); /* ChatGPT font link */
+
+    body, html {
+      height: 100%;
+      margin: 0;
+      font-family: 'Roboto', sans-serif; /* Use ChatGPT font or similar */
+      background-color: #ffffff; /* white background */
+      color: #000000; /* black text */
+    }
+
+    .chat-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      padding: 10px;
+    }
+
+    .card {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .card-header {
+      background-color: #000000; /* black header background */
+      color: #ffffff; /* white header text */
+      padding: 10px;
+      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .card-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+    }
+
+    .message {
+      list-style: none;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: flex-start;
+    }
+
+    .message-text {
+      padding: 10px;
+      border-radius: 10px;
+      max-width: 70%;
+      word-wrap: break-word;
+    }
+
+    .sent {
+      align-self: flex-end;
+      background-color: #ffffff; /* white background for sent messages */
+      border: 1px solid #000000; /* black border */
+    }
+
+    .received {
+      align-self: flex-start;
+      background-color: #f0f0f0; /* light gray background for received messages */
+      border: 1px solid #000000; /* black border */
+    }
+
+    .message-sender {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .message-content {
+      word-wrap: break-word;
+    }
+
+    .message-form {
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      background-color: #ffffff; /* white background */
+      border-top: 1px solid #000000; /* black border */
+      border-bottom-left-radius: 10px;
+      border-bottom-right-radius: 10px;
+    }
+
+    .message-input {
+      flex: 1;
+      border: none;
+      padding: 10px;
+      border-radius: 5px;
+      margin-right: 10px;
+      font-family: 'Roboto', sans-serif; /* Use ChatGPT font or similar */
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      transition: all 0.3s ease;
+    }
+
+    .message-input:focus {
+      outline: none;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .btn-send {
+      border-radius: 5px;
+      padding: 10px 20px;
+      background-color: #000000; /* black button background */
+      color: #ffffff; /* white button text */
+      border: none;
+      cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="chat-container">
+  <div class="card">
+    <div class="card-header">
+      ChatGPT
+      {% if user.is_authenticated %}
+        <div>Welcome, {{ user.username }} | <a href="logout" style="color: white;">Logout</a></div>
+      {% else %}
+        <div><a href="login" style="color: white;">Login</a> | <a href="register" style="color: white;">Register</a></div>
+      {% endif %}
+    </div>
+    <div class="card-body" id="messages-box">
+      <ul class="messages-list">
+        {% for chat in chats %}
+          {% if chat.user == request.user %}
+            <li class="message sent">
+              <div class="message-text">
+                <div class="message-sender">You</div>
+                <div class="message-content">{{ chat.message }}</div>
+              </div>
+            </li>
+            <li class="message received">
+              <div class="message-text">
+                <div class="message-sender">AI Chatbot</div>
+                <div class="message-content">{{ chat.response }}</div>
+              </div>
+            </li>
+          {% endif %}
+        {% endfor %}
+      </ul>
+    </div>
+    <form class="message-form" id="message-form">
+      {% csrf_token %}
+      <input type="text" class="message-input" id="message-input" placeholder="Type your message...">
+      <button type="submit" class="btn-send">Send</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  const messagesList = document.querySelector('.messages-list');
+  const messageForm = document.getElementById('message-form');
+  const messageInput = document.getElementById('message-input');
+
+  messageForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const message = messageInput.value.trim();
+    if (message.length === 0) {
+      return;
+    }
+
+    const sentMessageItem = document.createElement('li');
+    sentMessageItem.classList.add('message', 'sent');
+    sentMessageItem.innerHTML = `
+      <div class="message-text">
+        <div class="message-sender">You</div>
+        <div class="message-content">${message}</div>
+      </div>`;
+    messagesList.appendChild(sentMessageItem);
+    messageInput.value = '';
+
+    try {
+      const response = await fetch('', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          'csrfmiddlewaretoken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+          'message': message
+        })
+      });
+
+      const data = await response.json();
+
+      const receivedMessageItem = document.createElement('li');
+      receivedMessageItem.classList.add('message', 'received');
+      receivedMessageItem.innerHTML = `
+        <div class="message-text">
+          <div class="message-sender">AI Chatbot</div>
+          <div class="message-content">${data.response}</div>
+        </div>`;
+      messagesList.appendChild(receivedMessageItem);
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+  });
+
+  // Adjust input size based on content length
+  messageInput.addEventListener('input', () => {
+    messageInput.style.width = messageInput.value.length * 8 + 'px';
+  });
+
+</script>
+{% endblock %}
